@@ -1,5 +1,7 @@
 const pool = require('../config/db');
-const minioClient = require('../config/minio_config');
+// const minioClient = require('../config/minio_config');
+// Menjadi ini:
+const { minioClient } = require('../config/minio_config');
 const fs = require('fs');
 
 exports.getPosts = async (req, res) => {
@@ -22,15 +24,58 @@ exports.getPostById = async (req, res) => {
 exports.savePost = async (req, res) => {
     const { judul, isi } = req.body;
     const file = req.file;
+    const bucketName = 'pkl-images';
+
     if (!file) return res.status(400).send("File gambar wajib diupload!");
+
     try {
-        const fileName = `${Date.now()}-${file.originalname}`;
-        await minioClient.fPutObject('bunga-bucket', fileName, file.path);
-        const url_gambar = `http://localhost:9000/bunga-bucket/${fileName}`;
-        const result = await pool.query('INSERT INTO posts (judul, isi, url_gambar) VALUES ($1, $2, $3) RETURNING *', [judul, isi, url_gambar]);
-        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        // 1. Pastikan Bucket Ada & Set Public Policy (Jika belum ada)
+        const bucketExists = await minioClient.bucketExists(bucketName);
+        if (!bucketExists) {
+            await minioClient.makeBucket(bucketName, 'us-east-1');
+            
+            // Set Policy agar file bisa diakses publik via URL
+            const policy = {
+                Version: "2012-10-17",
+                Statement: [{
+                    Effect: "Allow",
+                    Principal: { AWS: ["*"] },
+                    Action: ["s3:GetObject"],
+                    Resource: [`arn:aws:s3:::${bucketName}/*`]
+                }]
+            };
+            await minioClient.setBucketPolicy(bucketName, JSON.stringify(policy));
+        }
+
+        // 2. Siapkan nama file unik
+        const fileName = `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`;
+
+        // 3. Upload ke Minio
+        // Gunakan fPutObject untuk upload file dari path temporary multer
+        await minioClient.fPutObject(bucketName, fileName, file.path);
+
+        // 4. Buat URL Gambar (Gunakan IP Laptop kamu agar bisa diakses device lain)
+        const url_gambar = `http://192.168.18.66:9000/${bucketName}/${fileName}`;
+
+        // 5. Simpan ke Database
+        const result = await pool.query(
+            'INSERT INTO posts (judul, isi, url_gambar) VALUES ($1, $2, $3) RETURNING *', 
+            [judul, isi, url_gambar]
+        );
+
+        // 6. Hapus file sementara di folder 'uploads/' agar tidak memenuhi storage lokal
+        if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+        }
+
         res.status(201).json(result.rows[0]);
-    } catch (e) { res.status(500).send(e.message); }
+
+    } catch (e) {
+        console.error("Minio Error:", e);
+        // Hapus file temp jika terjadi error saat upload ke Minio
+        if (file && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        res.status(500).send(e.message);
+    }
 };
 
 exports.updatePost = async (req, res) => {
