@@ -55,7 +55,7 @@ const Admin = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="bg-pink-200">
       <h2 style={styles.title}>🌷 Tambah Produk Flower App</h2>
 
       <form onSubmit={handleSubmit} style={styles.form}>

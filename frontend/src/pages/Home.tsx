@@ -47,11 +47,11 @@ export default function Home() {
       </div>
 
       {/* --- KONTEN UTAMA --- */}
-      <div className="flex-1 ml-64 p-10">
-        <header className="mb-12">
-          <h1 className="text-4xl font-black italic uppercase tracking-tighter text-slate-800">
-            Daftar Bunga 🌸
-          </h1>
+      <div className="flex-1 ml-64 p-10 bg-pink-200">
+        <header className="mb-12 bg-pink-100">
+          <marquee scrollamount="20"><h1 className="text-4xl font-black italic uppercase tracking-tighter text-slate-800">
+            Daftar Bunga 🌸                                KITING
+          </h1></marquee>
           <div className="h-1.5 w-20 bg-pink-500 rounded-full mt-2"></div>
         </header>
 
