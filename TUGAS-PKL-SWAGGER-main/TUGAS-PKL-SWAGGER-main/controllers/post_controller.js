@@ -3,18 +3,53 @@ const { minioClient } = require('../config/minio_config');
 const fs = require('fs');
 
 /* ================= GET ALL POSTS (WITH CATEGORY NAME) ================= */
+/* ================= GET ALL POSTS (WITH PAGINATION & SEARCH) ================= */
 exports.getPosts = async (req, res) => {
     try {
-        // Menggunakan LEFT JOIN agar postingan tetap muncul meskipun belum ada kategori
+        // 1. Ambil data dari query params (default: page 1, limit 6)
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 6;
+        const search = req.query.search || '';
+        
+        // 2. Hitung offset (titik mulai data yang diambil)
+        const offset = (page - 1) * limit;
+
+        // 3. Query dengan Search dan Pagination
+        // %${search}% digunakan agar pencarian fleksibel (bisa di depan, tengah, atau belakang)
         const query = `
             SELECT posts.*, categories.nama_kategori 
             FROM posts 
             LEFT JOIN categories ON posts.category_id = categories.id 
+            WHERE posts.judul ILIKE $1 OR categories.nama_kategori ILIKE $1
             ORDER BY posts.id DESC
+            LIMIT $2 OFFSET $3
         `;
-        const result = await pool.query(query);
-        res.status(200).json(result.rows);
+
+        const values = [`%${search}%`, limit, offset];
+        const result = await pool.query(query, values);
+
+        // 4. (Opsional) Hitung total data untuk info di frontend
+        const countQuery = `
+            SELECT COUNT(*) FROM posts 
+            LEFT JOIN categories ON posts.category_id = categories.id
+            WHERE posts.judul ILIKE $1 OR categories.nama_kategori ILIKE $1
+        `;
+        const totalResult = await pool.query(countQuery, [`%${search}%`]);
+        const totalData = parseInt(totalResult.rows[0].count);
+
+        // 5. Kirim response yang lengkap
+        res.status(200).json({
+            status: "success",
+            data: result.rows,
+            pagination: {
+                totalData: totalData,
+                totalPages: Math.ceil(totalData / limit),
+                currentPage: page,
+                limit: limit
+            }
+        });
     } catch (e) { 
+        console.error(e);
         res.status(500).send(e.message); 
     }
 };
