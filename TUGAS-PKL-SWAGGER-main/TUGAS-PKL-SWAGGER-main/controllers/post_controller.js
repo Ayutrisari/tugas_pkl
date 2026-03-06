@@ -2,25 +2,25 @@ const pool = require('../config/db');
 const { minioClient } = require('../config/minio_config');
 const fs = require('fs');
 
-/* ================= GET ALL POSTS (WITH CATEGORY NAME) ================= */
 /* ================= GET ALL POSTS (WITH PAGINATION & SEARCH) ================= */
 exports.getPosts = async (req, res) => {
     try {
-        // 1. Ambil data dari query params (default: page 1, limit 6)
+        // 1. Ambil data dari query params
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 6;
         const search = req.query.search || '';
         
-        // 2. Hitung offset (titik mulai data yang diambil)
         const offset = (page - 1) * limit;
 
-        // 3. Query dengan Search dan Pagination
-        // %${search}% digunakan agar pencarian fleksibel (bisa di depan, tengah, atau belakang)
+        // 2. Query Data: Menambahkan pencarian pada isi konten juga (opsional tapi bagus)
+        // Kita gunakan COALESCE agar jika nama_kategori null, query tidak error
         const query = `
-            SELECT posts.*, categories.nama_kategori 
+            SELECT posts.*, COALESCE(categories.nama_kategori, 'Tanpa Kategori') as nama_kategori 
             FROM posts 
             LEFT JOIN categories ON posts.category_id = categories.id 
-            WHERE posts.judul ILIKE $1 OR categories.nama_kategori ILIKE $1
+            WHERE posts.judul ILIKE $1 
+               OR posts.isi ILIKE $1 
+               OR categories.nama_kategori ILIKE $1
             ORDER BY posts.id DESC
             LIMIT $2 OFFSET $3
         `;
@@ -28,16 +28,17 @@ exports.getPosts = async (req, res) => {
         const values = [`%${search}%`, limit, offset];
         const result = await pool.query(query, values);
 
-        // 4. (Opsional) Hitung total data untuk info di frontend
+        // 3. Count Query untuk Pagination
         const countQuery = `
             SELECT COUNT(*) FROM posts 
             LEFT JOIN categories ON posts.category_id = categories.id
-            WHERE posts.judul ILIKE $1 OR categories.nama_kategori ILIKE $1
+            WHERE posts.judul ILIKE $1 
+               OR posts.isi ILIKE $1
+               OR categories.nama_kategori ILIKE $1
         `;
         const totalResult = await pool.query(countQuery, [`%${search}%`]);
         const totalData = parseInt(totalResult.rows[0].count);
 
-        // 5. Kirim response yang lengkap
         res.status(200).json({
             status: "success",
             data: result.rows,
@@ -49,7 +50,7 @@ exports.getPosts = async (req, res) => {
             }
         });
     } catch (e) { 
-        console.error(e);
+        console.error("Error getPosts:", e);
         res.status(500).send(e.message); 
     }
 };
@@ -58,7 +59,15 @@ exports.getPosts = async (req, res) => {
 exports.getPostById = async (req, res) => {
     try {
         const { id } = req.params;
-        const result = await pool.query('SELECT * FROM posts WHERE id = $1', [id]);
+        // Ambil join juga biar detail post muncul nama kategorinya
+        const query = `
+            SELECT posts.*, categories.nama_kategori 
+            FROM posts 
+            LEFT JOIN categories ON posts.category_id = categories.id 
+            WHERE posts.id = $1
+        `;
+        const result = await pool.query(query, [id]);
+        
         if (result.rows.length === 0) return res.status(404).send("Data tidak ditemukan");
         res.status(200).json(result.rows[0]);
     } catch (e) { 
@@ -68,7 +77,6 @@ exports.getPostById = async (req, res) => {
 
 /* ================= SAVE POST (DATABASE + MINIO) ================= */
 exports.savePost = async (req, res) => {
-    // 1. Ambil category_id dari body (Frontend harus mengirim ini)
     const { judul, isi, category_id } = req.body;
     const file = req.file;
     const bucketName = 'pkl-images';
@@ -76,7 +84,6 @@ exports.savePost = async (req, res) => {
     if (!file) return res.status(400).send("File gambar wajib diupload!");
 
     try {
-        // 2. Pastikan Bucket MinIO Siap
         const bucketExists = await minioClient.bucketExists(bucketName);
         if (!bucketExists) {
             await minioClient.makeBucket(bucketName, 'us-east-1');
@@ -92,26 +99,20 @@ exports.savePost = async (req, res) => {
             await minioClient.setBucketPolicy(bucketName, JSON.stringify(policy));
         }
 
-        // 3. Upload File ke MinIO
         const fileName = `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`;
         await minioClient.fPutObject(bucketName, fileName, file.path);
 
-        // 4. Buat URL Gambar Publik
         const url_gambar = `http://192.168.18.66:9000/${bucketName}/${fileName}`;
 
-        // 5. Simpan ke Database (Termasuk category_id)
         const query = `
             INSERT INTO posts (judul, isi, url_gambar, category_id) 
             VALUES ($1, $2, $3, $4) 
             RETURNING *
         `;
+        // Gunakan null jika category_id tidak dikirim agar DB tidak error
         const result = await pool.query(query, [judul, isi, url_gambar, category_id || null]);
 
-        // 6. Bersihkan file temporary di server local
-        if (fs.existsSync(file.path)) {
-            fs.unlinkSync(file.path);
-        }
-
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
         res.status(201).json(result.rows[0]);
 
     } catch (e) {
@@ -132,7 +133,9 @@ exports.updatePost = async (req, res) => {
             WHERE id=$4 
             RETURNING *
         `;
-        const result = await pool.query(query, [judul, isi, category_id, id]);
+        const result = await pool.query(query, [judul, isi, category_id || null, id]);
+        
+        if (result.rows.length === 0) return res.status(404).send("Data tidak ditemukan");
         res.status(200).json(result.rows[0]);
     } catch (e) { 
         res.status(500).send(e.message); 
@@ -143,8 +146,8 @@ exports.updatePost = async (req, res) => {
 exports.deletePost = async (req, res) => {
     const { id } = req.params;
     try {
-        // Opsional: Kamu bisa tambahkan logika hapus file di MinIO di sini sebelum hapus DB
-        await pool.query('DELETE FROM posts WHERE id=$1', [id]);
+        const result = await pool.query('DELETE FROM posts WHERE id=$1 RETURNING *', [id]);
+        if (result.rows.length === 0) return res.status(404).send("Data tidak ditemukan");
         res.status(200).send("Berhasil dihapus dari Database!");
     } catch (e) { 
         res.status(500).send(e.message); 
