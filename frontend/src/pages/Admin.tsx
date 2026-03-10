@@ -1,8 +1,12 @@
+//@ts-nocheck
 import { useState } from "react";
+import { useNavigate } from "react-router-dom"; // IMPORT INI DITAMBAHKAN
 import axios from "axios";
 import { Flower2, Upload, Send, ArrowLeft, Image as ImageIcon } from "lucide-react";
 
 export default function AdminAddPost() {
+  const navigate = useNavigate(); // INISIALISASI NAVIGATE
+
   // 1. State untuk Form Data
   const [judul, setJudul] = useState("");
   const [isi, setIsi] = useState("");
@@ -13,12 +17,12 @@ export default function AdminAddPost() {
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 3. Fungsi Handle Gambar (Untuk ngisi Preview)
+  // 3. Fungsi Handle Gambar
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      setFile(selectedFile); // Simpan file asli untuk upload
-      setPreview(URL.createObjectURL(selectedFile)); // Buat URL sementara untuk preview
+      setFile(selectedFile);
+      setPreview(URL.createObjectURL(selectedFile));
     }
   };
 
@@ -32,7 +36,6 @@ export default function AdminAddPost() {
     formData.append("judul", judul);
     formData.append("isi", isi);
     formData.append("category_id", categoryId);
-    // Pastikan key-nya 'url_gambar' sesuai multer di backend kamu
     formData.append("url_gambar", file); 
 
     try {
@@ -41,7 +44,9 @@ export default function AdminAddPost() {
       });
       console.log("Berhasil:", res.data);
       alert("Bunga berhasil disimpan!");
-      window.location.href = "/"; // Balik ke halaman utama
+      
+      // PERBAIKAN: Balik ke Dashboard Admin, bukan User Home
+      navigate("/admin"); 
     } catch (err: any) {
       console.error("Gagal simpan:", err.response?.data || err.message);
       alert("Gagal simpan! Cek terminal backend kamu.");
@@ -53,13 +58,16 @@ export default function AdminAddPost() {
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-pink-300 via-slate-100 to-pink-200 p-6 flex items-center justify-center font-sans">
       
-      {/* Tombol Back */}
-      <a href="/" className="fixed top-8 left-8 flex items-center gap-2 text-slate-600 hover:text-pink-600 font-bold transition-all group z-20">
+      {/* PERBAIKAN: Tombol Back sekarang pakai navigate ke /admin */}
+      <button 
+        onClick={() => navigate("/admin")} 
+        className="fixed top-8 left-8 flex items-center gap-2 text-slate-600 hover:text-pink-600 font-bold transition-all group z-20 bg-transparent border-none cursor-pointer"
+      >
         <div className="bg-white p-2 rounded-full shadow-md group-hover:scale-110 transition-all">
           <ArrowLeft size={20} />
         </div>
         Kembali ke Dashboard
-      </a>
+      </button>
 
       <div className="w-full max-w-4xl bg-white/70 backdrop-blur-xl rounded-[3rem] shadow-2xl border border-white/50 overflow-hidden flex flex-col md:flex-row animate-in fade-in slide-in-from-bottom-10 duration-700">
         

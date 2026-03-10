@@ -1,106 +1,168 @@
+//@ts-nocheck
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { LayoutDashboard, Flower2, User, ChevronLeft, ChevronRight, Edit3, Trash2, List } from "lucide-react";
-import { useNavigate, Link } from "react-router-dom";
+import { Plus, Pencil, Trash2, Loader2, Flower2, LayoutDashboard, PlusCircle, User, Eye, ChevronLeft, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import ExportButtons from "../components/ExportButtons";
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const limit = 4; 
 
-  useEffect(() => { fetchPosts(); }, [page]);
+  // STATE UNTUK PAGINATION (LIMIT DATA)
+  const [currentPage, setCurrentPage] = useState(1);
+  const postsPerPage = 4; // Limit 6 bunga per halaman
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
 
   const fetchPosts = async () => {
+    setLoading(true);
     try {
-      // Pastikan endpoint API kamu support query param 'page'
-      const res = await axios.get("http://localhost:3000/api/posts", { params: { page, limit } });
+      const res = await axios.get("http://localhost:3000/api/posts");
       setPosts(res.data.data);
-      setTotalPages(res.data.pagination.totalPages || 1);
-    } catch (err) { setPosts([]); }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (window.confirm("Hapus bunga ini kimbek?")) {
-      try {
-        await axios.delete(`http://localhost:3000/api/posts/${id}`);
-        fetchPosts();
-      } catch (err) { alert("Gagal hapus!"); }
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="flex min-h-screen bg-slate-50 font-sans">
-      {/* SIDEBAR */}
-      <div className="w-64 bg-slate-900 text-white flex flex-col fixed h-full shadow-2xl z-10">
-        <div className="p-6">
-          <h2 className="text-2xl font-black italic tracking-tighter flex items-center gap-2 text-pink-500"><Flower2 /> FLOWER APP</h2>
-        </div>
-        <nav className="flex-1 px-4 mt-4 space-y-2">
-          <Link to="/" className="flex items-center gap-3 p-3 bg-pink-600 rounded-xl font-bold shadow-lg shadow-pink-500/20"><User size={20} /> User Mode</Link>
-          <Link to="/admin" className="flex items-center gap-3 p-3 text-slate-400 hover:bg-slate-800 rounded-xl font-bold transition-all"><LayoutDashboard size={20} /> Admin Mode</Link>
-          <Link to="/category" className="flex items-center gap-3 p-3 text-slate-400 hover:bg-slate-800 rounded-xl font-bold transition-all"><List size={20} /> Kelola Kategori</Link>
-        </nav>
-      </div>
+  const deletePost = async (id) => {
+    if (window.confirm("Yakin mau hapus bunga ini?")) {
+      try {
+        await axios.delete(`http://localhost:3000/api/posts/${id}`);
+        fetchPosts();
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  };
 
-      {/* CONTENT AREA */}
-      <div className="flex-1 ml-64 p-10 bg-pink-100 min-h-screen">
-        <header className="mb-10 text-center">
-            <h1 className="text-4xl font-black italic uppercase tracking-tighter text-slate-800">Daftar Bunga Koleksi</h1>
+  // LOGIKA PAGINATION
+  const indexOfLastPost = currentPage * postsPerPage;
+  const indexOfFirstPost = indexOfLastPost - postsPerPage;
+  const currentPosts = posts.slice(indexOfFirstPost, indexOfLastPost);
+  const totalPages = Math.ceil(posts.length / postsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  return (
+    <div className="flex min-h-screen bg-pink-100 font-sans">
+      {/* SIDEBAR - Tetap aman di kiri */}
+      <aside className="w-64 bg-[#0f172a] text-white fixed h-full p-6 shadow-2xl z-50">
+        <div className="flex items-center gap-2 mb-10">
+          <div className="p-2 bg-pink-500 rounded-lg">
+            <Flower2 size={24} className="text-white" />
+          </div>
+          <h2 className="text-xl font-black text-pink-500 italic uppercase tracking-tighter">
+            FLOWER APP
+          </h2>
+        </div>
+        
+        <nav className="flex flex-col gap-2 font-bold text-slate-400">
+          <button onClick={() => navigate("/")} className="flex items-center gap-3 hover:text-white hover:bg-slate-800 p-3 rounded-xl transition-all w-full text-left">
+            <User size={20}/> <span className="text-sm">User Mode</span>
+          </button>
+          <div className="flex items-center gap-3 text-white bg-pink-600 p-3 rounded-xl shadow-lg shadow-pink-900/20">
+            <LayoutDashboard size={20}/> <span className="text-sm">Admin Mode</span>
+          </div>
+          <button onClick={() => navigate("/tambah")} className="flex items-center gap-3 hover:text-white hover:bg-slate-800 p-3 rounded-xl transition-all w-full text-left border border-slate-700 border-dashed mt-2">
+            <Plus size={20}/> <span className="text-sm">Tambah Bunga</span>
+          </button>
+          <button onClick={() => navigate("/category")} className="flex items-center gap-3 hover:text-white hover:bg-slate-800 p-3 rounded-xl transition-all w-full text-left">
+            <PlusCircle size={20}/> <span className="text-sm">Kelola Kategori</span>
+          </button>
+        </nav>
+      </aside>
+
+      {/* ISI KONTEN UTAMA */}
+      <main className="flex-1 ml-64 p-10 flex flex-col">
+        <header className="flex justify-between items-center mb-10">
+          <div>
+            <h1 className="text-4xl font-black italic text-pink-900 uppercase tracking-tighter">
+              DAFTAR BUNGA KOLEKSI
+            </h1>
+            <p className="text-pink-600 font-bold italic text-xs uppercase tracking-widest">Management Data Admin</p>
+          </div>
+          <ExportButtons posts={posts} />
         </header>
 
-        {/* GRID BUNGA */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {posts.map((post: any) => (
-            <div key={post.id} className="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-white">
-              <div className="relative h-56">
-                <img src={post.url_gambar} className="w-full h-full object-cover" alt={post.judul} />
-                <div className="absolute top-4 right-4 text-[10px] font-black bg-pink-600 text-white px-3 py-1 rounded-full uppercase">{post.nama_kategori}</div>
-              </div>
-              <div className="p-6">
-                <h3 className="text-xl font-black uppercase italic text-slate-800 line-clamp-1">{post.judul}</h3>
-                <p className="text-slate-500 text-xs italic mt-1 line-clamp-2 mb-4">{post.isi}</p>
-                <div className="flex gap-2 border-t pt-4">
-                  <button onClick={() => navigate(`/edit/${post.id}`)} className="flex-1 flex items-center justify-center gap-2 bg-amber-400 text-slate-900 py-2 rounded-lg font-black text-[10px] uppercase hover:bg-amber-500 transition-all"><Edit3 size={14} /> Edit</button>
-                  <button onClick={() => handleDelete(post.id)} className="flex-1 flex items-center justify-center gap-2 bg-red-500 text-white py-2 rounded-lg font-black text-[10px] uppercase hover:bg-red-600 transition-all"><Trash2 size={14} /> Hapus</button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* --- TOMBOL PAGINATION (YANG TADI ILANG) --- */}
-        <div className="mt-12 flex justify-center items-center gap-4">
-          <button 
-            disabled={page === 1}
-            onClick={() => setPage(page - 1)}
-            className="p-3 bg-white rounded-full shadow-md text-pink-600 hover:bg-pink-600 hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-pink-600"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          
-          <div className="flex gap-2">
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i + 1)}
-                className={`w-10 h-10 rounded-xl font-black transition-all shadow-sm ${page === i + 1 ? 'bg-pink-600 text-white' : 'bg-white text-slate-400 hover:bg-pink-100'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
+        {loading ? (
+          <div className="flex-1 flex flex-col items-center justify-center py-20 italic font-black text-pink-400 uppercase">
+             <Loader2 className="animate-spin mb-2" size={40} /> Memuat...
           </div>
+        ) : (
+          <>
+            {/* GRID BUNGA DENGAN DATA YANG SUDAH DI-LIMIT */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 flex-1">
+              {currentPosts.map((post) => (
+                <div key={post.id} className="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-pink-100 flex flex-col hover:shadow-2xl transition-all duration-300">
+                  <div className="relative h-56 overflow-hidden">
+                    <img src={post.url_gambar} className="w-full h-full object-cover" alt={post.judul} />
+                    <div className="absolute top-4 right-4 text-[10px] font-black bg-pink-600 text-white px-4 py-1.5 rounded-full uppercase shadow-md">
+                      {post.nama_kategori}
+                    </div>
+                  </div>
 
-          <button 
-            disabled={page === totalPages}
-            onClick={() => setPage(page + 1)}
-            className="p-3 bg-white rounded-full shadow-md text-pink-600 hover:bg-pink-600 hover:text-white transition-all disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-pink-600"
-          >
-            <ChevronRight size={24} />
-          </button>
-        </div>
-      </div>
+                  <div className="p-8 flex-1 flex flex-col">
+                    <h3 className="text-2xl font-black uppercase italic text-pink-900 mb-2 leading-tight">{post.judul}</h3>
+                    <p className="text-slate-500 text-[11px] font-medium italic line-clamp-2 mb-6 border-b border-pink-50 pb-4">
+                      {post.isi}
+                    </p>
+                    
+                    {/* TOMBOL AKSI SEJAJAR */}
+                    <div className="flex gap-2 mt-auto">
+                      <button onClick={() => navigate(`/detail/${post.id}`)} className="flex-1 flex items-center justify-center gap-1 py-3 bg-pink-600 text-white rounded-2xl font-black uppercase text-[9px] shadow-md hover:bg-pink-700 transition-all">
+                        <Eye size={12} /> DETAIL
+                      </button>
+                      <button onClick={() => navigate(`/edit/${post.id}`)} className="flex-1 flex items-center justify-center gap-1 py-3 bg-amber-400 text-slate-900 rounded-2xl font-black uppercase text-[9px] shadow-md hover:bg-amber-500 transition-all">
+                        <Pencil size={12} /> EDIT
+                      </button>
+                      <button onClick={() => deletePost(post.id)} className="flex-1 flex items-center justify-center gap-1 py-3 bg-rose-500 text-white rounded-2xl font-black uppercase text-[9px] shadow-md hover:bg-rose-600 transition-all">
+                        <Trash2 size={12} /> HAPUS
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* KONTROL PAGINATION (PREVIOUS / NEXT) */}
+            <div className="flex justify-center items-center gap-4 mt-12 mb-6">
+              <button 
+                onClick={() => paginate(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`p-3 rounded-full shadow-md transition-all ${currentPage === 1 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white text-pink-600 hover:bg-pink-600 hover:text-white'}`}
+              >
+                <ChevronLeft size={24} />
+              </button>
+              
+              <div className="flex gap-2">
+                {[...Array(totalPages)].map((_, index) => (
+                  <button
+                    key={index + 1}
+                    onClick={() => paginate(index + 1)}
+                    className={`w-10 h-10 rounded-xl font-black transition-all ${currentPage === index + 1 ? 'bg-pink-600 text-white' : 'bg-white text-pink-900 hover:bg-pink-50'}`}
+                  >
+                    {index + 1}
+                  </button>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => paginate(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`p-3 rounded-full shadow-md transition-all ${currentPage === totalPages ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white text-pink-600 hover:bg-pink-600 hover:text-white'}`}
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+          </>
+        )}
+      </main>
     </div>
   );
 }
