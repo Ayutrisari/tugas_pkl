@@ -1,14 +1,8 @@
 const express = require("express");
 const router = express.Router();
+
 const category = require("../controllers/category_controller");
 const verifyToken = require("../middlewares/auth_middleware");
-
-/**
- * @swagger
- * tags:
- *   name: Categories
- *   description: API untuk mengelola category
- */
 
 /**
  * @swagger
@@ -16,13 +10,13 @@ const verifyToken = require("../middlewares/auth_middleware");
  *   get:
  *     summary: Ambil semua category
  *     tags: [Categories]
- *     security:
- *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Berhasil mengambil data
+ *         description: Berhasil mengambil data category
  */
-router.get("/", verifyToken, category.getAll);
+ // verifyToken dilepas supaya frontend bisa ambil data untuk dropdown tanpa login
+router.get("/", category.getCategories);
+
 
 /**
  * @swagger
@@ -32,17 +26,12 @@ router.get("/", verifyToken, category.getAll);
  *     tags: [Categories]
  *     security:
  *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Category'
  *     responses:
  *       201:
- *         description: Category berhasil dibuat
+ *         description: Category berhasil ditambahkan
  */
 router.post("/", verifyToken, category.create);
+
 
 /**
  * @swagger
@@ -56,19 +45,15 @@ router.post("/", verifyToken, category.create);
  *       - in: path
  *         name: id
  *         required: true
+ *         description: ID category
  *         schema:
  *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Category'
  *     responses:
  *       200:
  *         description: Category berhasil diupdate
  */
 router.put("/:id", verifyToken, category.update);
+
 
 /**
  * @swagger
@@ -82,6 +67,7 @@ router.put("/:id", verifyToken, category.update);
  *       - in: path
  *         name: id
  *         required: true
+ *         description: ID category
  *         schema:
  *           type: integer
  *     responses:

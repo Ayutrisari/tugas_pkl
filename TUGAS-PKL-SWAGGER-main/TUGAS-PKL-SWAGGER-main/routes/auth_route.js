@@ -4,10 +4,17 @@ const authController = require("../controllers/auth_controller");
 
 /**
  * @swagger
+ * tags:
+ *   name: Auth
+ *   description: API untuk Login, Register, dan Refresh Token
+ */
+
+/**
+ * @swagger
  * /api/auth/register:
- *   post:                     # <- ini bikin Swagger tampil “POST” di atas
+ *   post:
  *     summary: Register user
- *     description: Membuat user baru dengan email dan password
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
@@ -15,29 +22,30 @@ const authController = require("../controllers/auth_controller");
  *           schema:
  *             type: object
  *             properties:
+ *               username:
+ *                 type: string
+ *                 example: kiting
  *               email:
  *                 type: string
- *                 format: email
  *                 example: user@example.com
  *               password:
  *                 type: string
- *                 format: password
- *                 example: 123456
- *             required:
- *               - email
- *               - password
+ *                 example: "123456"
+ *               role:
+ *                 type: string
+ *                 example: user
  *     responses:
  *       201:
- *         description: User berhasil dibuat
+ *         description: Berhasil
  */
 router.post("/register", authController.register);
 
 /**
  * @swagger
  * /api/auth/login:
- *   post:                     # <- POST di atas, bukan default
+ *   post:
  *     summary: Login user
- *     description: Login dengan email dan password
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
@@ -47,27 +55,22 @@ router.post("/register", authController.register);
  *             properties:
  *               email:
  *                 type: string
- *                 format: email
  *                 example: user@example.com
  *               password:
  *                 type: string
- *                 format: password
- *                 example: 123456
- *             required:
- *               - email
- *               - password
+ *                 example: "123456"
  *     responses:
  *       200:
- *         description: Login berhasil
+ *         description: Berhasil
  */
 router.post("/login", authController.login);
 
 /**
  * @swagger
  * /api/auth/refresh-token:
- *   post:                     # <- POST di atas
- *     summary: Refresh JWT token
- *     description: Membuat token baru dari token lama
+ *   post:
+ *     summary: Refresh JWT Token
+ *     tags: [Auth]
  *     requestBody:
  *       required: true
  *       content:
@@ -78,12 +81,10 @@ router.post("/login", authController.login);
  *               token:
  *                 type: string
  *                 example: oldToken123
- *             required:
- *               - token
  *     responses:
  *       200:
- *         description: Token berhasil di-refresh
+ *         description: Berhasil
  */
 router.post("/refresh-token", authController.refreshToken);
 
-module.exports = router;    
+module.exports = router;

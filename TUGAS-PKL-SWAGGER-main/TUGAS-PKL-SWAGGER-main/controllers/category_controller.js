@@ -1,16 +1,17 @@
-const pool = require("../config/db");
+const pool = require('../config/db');
 
-exports.getAll = async (req, res) => {
+// Menggunakan getCategories sebagai fungsi utama untuk mengambil semua data
+exports.getCategories = async (req, res) => {
     try {
-        const result = await pool.query("SELECT * FROM categories ORDER BY id ASC");
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+        const result = await pool.query('SELECT id, nama_kategori FROM categories ORDER BY id ASC');
+        res.status(200).json(result.rows);
+    } catch (e) {
+        console.error("Error getCategories:", e);
+        res.status(500).send(e.message);
     }
 };
 
 exports.create = async (req, res) => {
-    // Sesuaikan req.body dengan nama_kategori
     const { nama_kategori } = req.body;
     try {
         const result = await pool.query(
@@ -19,7 +20,7 @@ exports.create = async (req, res) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
-        res.status(500).json({ error: "Gagal tambah kategori kimbek!" });
+        res.status(500).json({ error: "Gagal tambah kategori!" });
     }
 };
 
@@ -43,7 +44,6 @@ exports.delete = async (req, res) => {
         await pool.query("DELETE FROM categories WHERE id=$1", [id]);
         res.json({ message: "Category berhasil dihapus" });
     } catch (err) {
-        // Biasanya eror karena kategori masih dipakai di tabel post_bunga
         res.status(400).json({ error: "Kategori masih digunakan!" });
     }
 };
